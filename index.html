@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADHD Rainbow Timer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center font-sans antialiased select-none">
+  
+  <div id="app" class="w-full max-w-md mx-auto p-4 flex flex-col items-center">
+    
+    <div class="text-6xl font-black mb-6 text-slate-800 tracking-tighter transition-all">
+      {{ formattedTime }}
+    </div>
+
+    <div class="relative w-80 h-80 sm:w-96 sm:h-96 bg-[#42c5f5] rounded-[3rem] shadow-xl border-[10px] border-[#2bbdf0] p-4 flex items-center justify-center">
+      <div class="relative w-full h-full bg-white rounded-[2rem] shadow-inner overflow-hidden flex items-center justify-center">
+        <div class="absolute inset-0 rounded-full"
+             style="background: conic-gradient(#ff4d4d 0deg 60deg, #ffa500 60deg 120deg, #eab308 120deg 180deg, #22c55e 180deg 240deg, #3b82f6 240deg 300deg, #a855f7 300deg 360deg)">
+        </div>
+        <div class="absolute inset-0 rounded-full"
+             :style="{ background: `conic-gradient(transparent 0deg, transparent ${currentAngle}deg, white ${currentAngle}deg, white 360deg)` }">
+        </div>
+        <svg viewBox="0 0 100 100" class="absolute inset-0 w-full h-full pointer-events-none">
+          <g transform="translate(50, 50)">
+            <line v-for="i in 60" :key="'tick-'+i" x1="0" y1="-48" x2="0" :y2="i % 5 === 0 ? -42 : -45"
+                  :stroke="i % 5 === 0 ? '#64748b' : '#cbd5e1'" :stroke-width="i % 5 === 0 ? 1 : 0.5"
+                  :transform="`rotate(${i * 6})`" />
+            <text v-for="n in [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]" :key="'num-'+n"
+                  x="0" y="-34" font-size="7" font-weight="900" text-anchor="middle" dominant-baseline="middle"
+                  :fill="getColor(n)" :transform="`rotate(${n * 6}) rotate(${-n * 6}, 0, -34)`">
+              {{ n }}
+            </text>
+          </g>
+        </svg>
+        <div class="absolute w-12 h-12 bg-slate-50 rounded-full shadow-md border-2 border-slate-200"></div>
+      </div>
+    </div>
+
+    <div class="mt-6 w-full bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
+      <div class="flex justify-between items-center">
+        <span class="text-sm font-bold text-slate-500">🎧 Focus Audio</span>
+        <select v-model="selectedNoise" @change="handleNoiseChange" class="bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-sm font-bold text-slate-700 outline-none">
+          <option value="none">🔇 Mati</option>
+          <option value="brown">🟤 Brown Noise</option>
+          <option value="white">⚪ White Noise</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold text-slate-400">Vol</span>
+        <input type="range" v-model="volume" min="0" max="1" step="0.05" @input="updateVolume" class="w-full accent-blue-500">
+      </div>
+    </div>
+
+    <div class="mt-4 w-full space-y-3">
+      <div class="grid grid-cols-4 gap-2">
+        <button v-for="m in [5, 15, 25, 60]" :key="'btn-'+m" @click="setTimer(m)"
+                class="bg-white py-3 rounded-xl font-black shadow-sm border border-slate-200 hover:bg-slate-50 active:scale-95 transition">
+          {{ m }}m
+        </button>
+      </div>
+      <div class="flex gap-2">
+        <button @click="toggleTimer" :class="isRunning ? 'bg-orange-500' : 'bg-emerald-500'"
+                class="flex-[2] text-white font-black py-4 rounded-xl shadow-md uppercase active:scale-95 transition">
+          {{ isRunning ? 'Pause' : 'Start' }}
+        </button>
+        <button @click="resetTimer" class="flex-1 bg-slate-200 text-slate-700 font-bold rounded-xl active:scale-95 transition">
+          Reset
+        </button>
+      </div>
+      <button @click="triggerPiP" class="w-full bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold py-3 rounded-xl transition">
+        📺 Floating Mode (PiP)
+      </button>
+    </div>
+
+    <audio ref="alarmAudio" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+    <audio ref="brownAudio" loop src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Brown_noise.ogg"></audio>
+    <audio ref="whiteAudio" loop src="https://upload.wikimedia.org/wikipedia/commons/9/9c/White_noise.ogg"></audio>
+    
+    <canvas ref="pipCanvas" width="300" height="300" class="hidden"></canvas>
+    <video ref="pipVideo" autoplay muted class="hidden"></video>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const timeLeft = ref(0);
+        const isRunning = ref(false);
+        let timerId = null;
+
+        // Audio Refs & State
+        const alarmAudio = ref(null);
+        const brownAudio = ref(null);
+        const whiteAudio = ref(null);
+        const selectedNoise = ref('none');
+        const volume = ref(0.3); // Default volume 30%
+
+        const pipCanvas = ref(null);
+        const pipVideo = ref(null);
+
+        const currentAngle = computed(() => (timeLeft.value / 3600) * 360);
+        const formattedTime = computed(() => {
+          const m = Math.floor(timeLeft.value / 60);
+          const s = timeLeft.value % 60;
+          return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        });
+
+        const getColor = (n) => {
+          const colors = ["#ff4d4d", "#ffa500", "#eab308", "#22c55e", "#3b82f6", "#a855f7"];
+          return colors[Math.floor(n / 10)] || colors[0];
+        };
+
+        const updateVolume = () => {
+          if (brownAudio.value) brownAudio.value.volume = volume.value;
+          if (whiteAudio.value) whiteAudio.value.volume = volume.value;
+          if (alarmAudio.value) alarmAudio.value.volume = volume.value;
+        };
+
+        const handleNoiseChange = () => {
+          if (brownAudio.value) brownAudio.value.pause();
+          if (whiteAudio.value) whiteAudio.value.pause();
+          
+          if (isRunning.value) {
+            if (selectedNoise.value === 'brown' && brownAudio.value) brownAudio.value.play();
+            if (selectedNoise.value === 'white' && whiteAudio.value) whiteAudio.value.play();
+          }
+        };
+
+        const playSelectedNoise = () => {
+          updateVolume();
+          if (selectedNoise.value === 'brown' && brownAudio.value) brownAudio.value.play();
+          if (selectedNoise.value === 'white' && whiteAudio.value) whiteAudio.value.play();
+        };
+
+        const stopAllNoise = () => {
+          if (brownAudio.value) brownAudio.value.pause();
+          if (whiteAudio.value) whiteAudio.value.pause();
+        };
+
+        const setTimer = (m) => {
+          resetTimer();
+          timeLeft.value = m * 60;
+          updatePiP();
+        };
+
+        const toggleTimer = () => {
+          if (isRunning.value) {
+            clearInterval(timerId);
+            isRunning.value = false;
+            stopAllNoise();
+          } else if (timeLeft.value > 0) {
+            isRunning.value = true;
+            playSelectedNoise();
+            timerId = setInterval(() => {
+              timeLeft.value--;
+              updatePiP();
+              if (timeLeft.value <= 0) {
+                clearInterval(timerId);
+                isRunning.value = false;
+                stopAllNoise();
+                if(alarmAudio.value) alarmAudio.value.play();
+                alert("Waktu Habis!");
+                resetTimer();
+              }
+            }, 1000);
+          }
+        };
+
+        const resetTimer = () => {
+          clearInterval(timerId);
+          isRunning.value = false;
+          timeLeft.value = 0;
+          stopAllNoise();
+          updatePiP();
+        };
+
+        const updatePiP = () => {
+          if (!pipCanvas.value) return;
+          const ctx = pipCanvas.value.getContext('2d');
+          ctx.fillStyle = "white"; ctx.fillRect(0, 0, 300, 300);
+          ctx.beginPath();
+          ctx.moveTo(150, 150);
+          ctx.arc(150, 150, 130, -Math.PI/2, (-Math.PI/2) + (currentAngle.value * Math.PI / 180));
+          ctx.fillStyle = "#ff4d4d"; ctx.fill();
+          ctx.fillStyle = "black"; ctx.font = "bold 60px sans-serif"; ctx.textAlign = "center";
+          ctx.fillText(formattedTime.value, 150, 170);
+        };
+
+        const triggerPiP = async () => {
+          if (!pipVideo.value) return;
+          pipVideo.value.srcObject = pipCanvas.value.captureStream();
+          await pipVideo.value.play();
+          await pipVideo.value.requestPictureInPicture();
+        };
+
+        onMounted(() => {
+          updateVolume(); // Set initial volume
+        });
+
+        return {
+          timeLeft, isRunning, currentAngle, formattedTime,
+          alarmAudio, brownAudio, whiteAudio, selectedNoise, volume, pipCanvas, pipVideo,
+          getColor, setTimer, toggleTimer, resetTimer, triggerPiP, handleNoiseChange, updateVolume
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
