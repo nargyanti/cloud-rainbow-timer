@@ -1,84 +1,145 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ADHD Rainbow Timer</title>
+  <title>Visual Focus Timer</title>
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏱️</text></svg>">
+  
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    .sidebar-transition { transition: all 0.3s ease-in-out; }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center font-sans antialiased select-none">
+<body class="bg-slate-100 min-h-screen font-sans antialiased select-none overflow-hidden">
   
-  <div id="app" class="w-full max-w-md mx-auto p-4 flex flex-col items-center">
+  <div id="app" class="h-screen w-full p-4 flex flex-col md:flex-row gap-4 relative">
     
-    <div class="text-6xl font-black mb-6 text-slate-800 tracking-tighter transition-all">
-      {{ formattedTime }}
-    </div>
+    <button @click="toggleSidebar" class="absolute top-4 right-4 z-50 bg-white p-2 rounded-full shadow-md hover:bg-slate-50 transition hidden md:block">
+      <span class="text-xl">{{ showSidebar ? '➡️' : '⚙️ Settings' }}</span>
+    </button>
 
-    <div class="relative w-80 h-80 sm:w-96 sm:h-96 bg-[#42c5f5] rounded-[3rem] shadow-xl border-[10px] border-[#2bbdf0] p-4 flex items-center justify-center">
-      <div class="relative w-full h-full bg-white rounded-[2rem] shadow-inner overflow-hidden flex items-center justify-center">
-        <div class="absolute inset-0 rounded-full"
-             style="background: conic-gradient(#ff4d4d 0deg 60deg, #ffa500 60deg 120deg, #eab308 120deg 180deg, #22c55e 180deg 240deg, #3b82f6 240deg 300deg, #a855f7 300deg 360deg)">
+    <main class="flex-grow flex items-center justify-center transition-all duration-300 p-4"
+          :class="{'md:pr-80': showSidebar, 'w-full': !showSidebar}">
+        
+      <div class="relative w-full max-w-[80vh] max-h-[80vh] aspect-square bg-[#42c5f5] rounded-[3rem] sm:rounded-[4rem] shadow-xl border-[8px] sm:border-[12px] border-[#2bbdf0] p-4 flex items-center justify-center transition-all duration-300">
+        
+        <div class="relative w-full h-full bg-white rounded-[2.5rem] sm:rounded-[3.5rem] shadow-inner overflow-hidden flex items-center justify-center">
+          
+          <div class="absolute inset-0 rounded-full"
+               style="background: conic-gradient(
+                #ff6b6b 0deg 60deg,
+                #feca57 60deg 120deg,
+                #48dbfb 120deg 180deg,
+                #1dd1a1 180deg 240deg,
+                #a55eea 240deg 300deg,
+                #ff9ff3 300deg 360deg
+               )">
+          </div>
+          
+          <div class="absolute inset-0 rounded-full transition-all duration-[1s] ease-linear"
+               :style="{ background: `conic-gradient(transparent 0deg, transparent ${currentAngle}deg, white ${currentAngle}deg, white 360deg)` }">
+          </div>
+          
+          <svg viewBox="0 0 100 100" class="absolute inset-0 w-full h-full pointer-events-none z-10">
+            <g transform="translate(50, 50)">
+              <line v-for="i in 60" :key="'tick-'+i" x1="0" y1="-48" x2="0" :y2="i % 5 === 0 ? -41 : -45"
+                    :stroke="i % 5 === 0 ? '#334155' : '#94a3b8'" :stroke-width="i % 5 === 0 ? 1.2 : 0.6"
+                    :transform="`rotate(${i * 6})`" />
+              <text v-for="n in [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]" :key="'num-'+n"
+                    x="0" y="-33" font-size="8" font-weight="900" text-anchor="middle" dominant-baseline="middle"
+                    fill="#1e293b" :transform="`rotate(${n * 6}) rotate(${-n * 6}, 0, -33)`">
+                {{ n }}
+              </text>
+            </g>
+          </svg>
+          
+          <div class="absolute w-14 h-14 sm:w-20 sm:h-20 bg-slate-50 rounded-full shadow-md border-4 border-slate-100 z-20 flex items-center justify-center">
+              <div class="w-2 h-2 sm:w-3 sm:h-3 bg-slate-300 rounded-full"></div>
+          </div>
         </div>
-        <div class="absolute inset-0 rounded-full"
-             :style="{ background: `conic-gradient(transparent 0deg, transparent ${currentAngle}deg, white ${currentAngle}deg, white 360deg)` }">
+      </div>
+    </main>
+
+    <aside class="sidebar-transition flex-shrink-0 w-full md:w-80 bg-white md:h-full rounded-3xl shadow-lg border border-slate-200 overflow-y-auto"
+           :class="showSidebar ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 md:w-0 pointer-events-none hidden md:block'">
+      
+      <div class="p-6 flex flex-col gap-6 h-full">
+        
+        <div class="flex items-center justify-between md:hidden">
+            <h2 class="text-xl font-black text-slate-700">Settings</h2>
+             <button @click="showSidebar = false" class="p-2 bg-slate-100 rounded-full">⬇️</button>
         </div>
-        <svg viewBox="0 0 100 100" class="absolute inset-0 w-full h-full pointer-events-none">
-          <g transform="translate(50, 50)">
-            <line v-for="i in 60" :key="'tick-'+i" x1="0" y1="-48" x2="0" :y2="i % 5 === 0 ? -42 : -45"
-                  :stroke="i % 5 === 0 ? '#64748b' : '#cbd5e1'" :stroke-width="i % 5 === 0 ? 1 : 0.5"
-                  :transform="`rotate(${i * 6})`" />
-            <text v-for="n in [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]" :key="'num-'+n"
-                  x="0" y="-34" font-size="7" font-weight="900" text-anchor="middle" dominant-baseline="middle"
-                  :fill="getColor(n)" :transform="`rotate(${n * 6}) rotate(${-n * 6}, 0, -34)`">
-              {{ n }}
-            </text>
-          </g>
-        </svg>
-        <div class="absolute w-12 h-12 bg-slate-50 rounded-full shadow-md border-2 border-slate-200"></div>
-      </div>
-    </div>
 
-    <div class="mt-6 w-full bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-      <div class="flex justify-between items-center">
-        <span class="text-sm font-bold text-slate-500">🎧 Focus Audio</span>
-        <select v-model="selectedNoise" @change="handleNoiseChange" class="bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-sm font-bold text-slate-700 outline-none">
-          <option value="none">🔇 Mati</option>
-          <option value="brown">🟤 Brown Noise</option>
-          <option value="white">⚪ White Noise</option>
-        </select>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-xs font-bold text-slate-400">Vol</span>
-        <input type="range" v-model="volume" min="0" max="1" step="0.05" @input="updateVolume" class="w-full accent-blue-500">
-      </div>
-    </div>
+        <div class="text-center mt-2">
+            <div class="text-6xl font-black text-slate-800 tracking-tighter transition-all">
+            {{ formattedTime }}
+            </div>
+            <p class="text-slate-400 text-sm font-bold mt-1">Time Left</p>
+        </div>
 
-    <div class="mt-4 w-full space-y-3">
-      <div class="grid grid-cols-4 gap-2">
-        <button v-for="m in [5, 15, 25, 60]" :key="'btn-'+m" @click="setTimer(m)"
-                class="bg-white py-3 rounded-xl font-black shadow-sm border border-slate-200 hover:bg-slate-50 active:scale-95 transition">
-          {{ m }}m
-        </button>
-      </div>
-      <div class="flex gap-2">
-        <button @click="toggleTimer" :class="isRunning ? 'bg-orange-500' : 'bg-emerald-500'"
-                class="flex-[2] text-white font-black py-4 rounded-xl shadow-md uppercase active:scale-95 transition">
-          {{ isRunning ? 'Pause' : 'Start' }}
-        </button>
-        <button @click="resetTimer" class="flex-1 bg-slate-200 text-slate-700 font-bold rounded-xl active:scale-95 transition">
-          Reset
-        </button>
-      </div>
-      <button @click="triggerPiP" class="w-full bg-sky-100 hover:bg-sky-200 text-sky-700 font-bold py-3 rounded-xl transition">
-        📺 Floating Mode (PiP)
-      </button>
-    </div>
+        <hr class="border-slate-100">
 
-    <audio ref="alarmAudio" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
-    <audio ref="brownAudio" loop src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Brown_noise.ogg"></audio>
-    <audio ref="whiteAudio" loop src="https://upload.wikimedia.org/wikipedia/commons/9/9c/White_noise.ogg"></audio>
-    
+        <div class="flex flex-col gap-4">
+          <div class="flex justify-between items-center">
+            <span class="text-sm font-bold text-slate-600 flex items-center gap-2">
+                🎧 Focus Audio
+            </span>
+            <select v-model="selectedNoise" @change="handleNoiseChange" class="bg-slate-50 border-2 border-slate-200 rounded-xl py-2 px-3 text-sm font-bold text-slate-700 outline-none cursor-pointer focus:border-blue-400 transition">
+              <option value="none">🔇 Off</option>
+              <option value="brown">🟤 Deep Brown</option>
+              <option value="white">⚪ Soft White</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
+            <span class="text-xs font-bold text-slate-400">🔈</span>
+            <input type="range" v-model="volume" min="0" max="1" step="0.05" @input="updateVolume" class="w-full accent-[#42c5f5] cursor-pointer h-2 rounded-full bg-slate-200 appearance-none">
+            <span class="text-xs font-bold text-slate-400">🔊</span>
+          </div>
+        </div>
+
+        <hr class="border-slate-100">
+
+        <div class="space-y-4 flex-grow flex flex-col justify-end pb-4">
+          <p class="text-sm font-bold text-slate-600 mb-1">Quick Presets</p>
+          <div class="grid grid-cols-4 gap-2">
+            <button v-for="m in [5, 15, 25, 60]" :key="'btn-'+m" @click="setTimer(m)"
+                    class="bg-slate-50 py-3 rounded-xl font-black text-slate-700 shadow-sm border-2 border-slate-200 hover:bg-blue-50 hover:border-blue-200 active:scale-95 transition">
+              {{ m }}m
+            </button>
+          </div>
+          
+          <div class="flex gap-2 mt-2">
+            <input type="number" v-model="customMinutes" @keyup.enter="setCustomTimer" min="1" max="60" placeholder="Custom (1-60 min)" 
+                   class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-2 px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-400 transition">
+            <button @click="setCustomTimer" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95 transition">
+              Set
+            </button>
+          </div>
+
+          <div class="flex gap-3 mt-4">
+            <button @click="toggleTimer" :class="isRunning ? 'bg-orange-500 shadow-orange-200' : 'bg-emerald-500 shadow-emerald-200'"
+                    class="flex-[2] text-white font-black py-4 rounded-2xl shadow-lg uppercase tracking-widest active:scale-95 transition text-lg">
+              {{ isRunning ? 'Pause' : 'Start' }}
+            </button>
+            <button @click="resetTimer" class="flex-1 bg-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-300 active:scale-95 transition">
+              Reset
+            </button>
+          </div>
+          
+          <button @click="triggerPiP" class="w-full bg-sky-100 hover:bg-sky-200 text-sky-800 border-2 border-sky-200 font-bold py-3 rounded-xl transition flex justify-center items-center gap-3 mt-2">
+            <span class="text-xl">📺</span> Floating Mode (PiP)
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <button v-if="!showSidebar" @click="showSidebar = true" class="md:hidden fixed bottom-6 right-6 bg-blue-500 text-white p-4 rounded-full shadow-lg z-50 font-bold">
+        ⚙️ Settings
+    </button>
+
     <canvas ref="pipCanvas" width="300" height="300" class="hidden"></canvas>
     <video ref="pipVideo" autoplay muted class="hidden"></video>
   </div>
@@ -90,14 +151,17 @@
       setup() {
         const timeLeft = ref(0);
         const isRunning = ref(false);
+        const showSidebar = ref(true);
+        const customMinutes = ref(null);
         let timerId = null;
+        let wakeLock = null;
 
-        // Audio Refs & State
-        const alarmAudio = ref(null);
-        const brownAudio = ref(null);
-        const whiteAudio = ref(null);
+        // Web Audio API Variables
         const selectedNoise = ref('none');
-        const volume = ref(0.3); // Default volume 30%
+        const volume = ref(0.3);
+        let audioCtx = null;
+        let noiseNode = null;
+        let noiseGain = null;
 
         const pipCanvas = ref(null);
         const pipVideo = ref(null);
@@ -109,42 +173,123 @@
           return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         });
 
-        const getColor = (n) => {
-          const colors = ["#ff4d4d", "#ffa500", "#eab308", "#22c55e", "#3b82f6", "#a855f7"];
-          return colors[Math.floor(n / 10)] || colors[0];
+        const toggleSidebar = () => {
+            showSidebar.value = !showSidebar.value;
         };
 
-        const updateVolume = () => {
-          if (brownAudio.value) brownAudio.value.volume = volume.value;
-          if (whiteAudio.value) whiteAudio.value.volume = volume.value;
-          if (alarmAudio.value) alarmAudio.value.volume = volume.value;
+        // --- Wake Lock API ---
+        const requestWakeLock = async () => {
+            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) { }
+        };
+        const releaseWakeLock = async () => {
+            if (wakeLock) { await wakeLock.release(); wakeLock = null; }
         };
 
-        const handleNoiseChange = () => {
-          if (brownAudio.value) brownAudio.value.pause();
-          if (whiteAudio.value) whiteAudio.value.pause();
-          
-          if (isRunning.value) {
-            if (selectedNoise.value === 'brown' && brownAudio.value) brownAudio.value.play();
-            if (selectedNoise.value === 'white' && whiteAudio.value) whiteAudio.value.play();
+        // --- AUDIO LOGIC (Synthesizer) ---
+        const initAudio = () => {
+          if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            noiseGain = audioCtx.createGain();
+            updateVolume();
+            noiseGain.connect(audioCtx.destination);
           }
         };
 
+        const playAlarmBeep = () => {
+          initAudio();
+          const playTone = (freq, startTime, duration) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(volume.value, startTime + 0.05);
+            gain.gain.linearRampToValueAtTime(0, startTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+          };
+          
+          const now = audioCtx.currentTime;
+          
+          // Memutar alarm 3 kali berturut-turut
+          for(let i = 0; i < 3; i++) {
+            // Memberikan jarak 1.2 detik untuk setiap bunyi "Ta-da"
+            const offset = i * 2; 
+            playTone(523.25, now + offset, 0.4); // C5
+            playTone(659.25, now + offset + 0.4, 0.6); // E5
+          }
+        };
+
+        const generateNoise = (type) => {
+          const bufferSize = audioCtx.sampleRate * 2;
+          const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+          const output = buffer.getChannelData(0);
+          
+          if (type === 'white') {
+            // Algoritma Pink Noise agar suaranya "Soft"
+            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+            for (let i = 0; i < bufferSize; i++) {
+              let white = Math.random() * 2 - 1;
+              b0 = 0.99886 * b0 + white * 0.0555179;
+              b1 = 0.99332 * b1 + white * 0.0750759;
+              b2 = 0.96900 * b2 + white * 0.1538520;
+              b3 = 0.86650 * b3 + white * 0.3104856;
+              b4 = 0.55000 * b4 + white * 0.5329522;
+              b5 = -0.7616 * b5 - white * 0.0168980;
+              output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+              output[i] *= 0.11; 
+              b6 = white * 0.115926;
+            }
+          } else if (type === 'brown') {
+            let lastOut = 0;
+            for (let i = 0; i < bufferSize; i++) {
+              let white = Math.random() * 2 - 1;
+              output[i] = (lastOut + (0.02 * white)) / 1.02;
+              lastOut = output[i];
+              output[i] *= 3.5;
+            }
+          }
+          return buffer;
+        };
+
         const playSelectedNoise = () => {
-          updateVolume();
-          if (selectedNoise.value === 'brown' && brownAudio.value) brownAudio.value.play();
-          if (selectedNoise.value === 'white' && whiteAudio.value) whiteAudio.value.play();
+          stopAllNoise();
+          if (selectedNoise.value === 'none') return;
+          initAudio();
+          noiseNode = audioCtx.createBufferSource();
+          noiseNode.buffer = generateNoise(selectedNoise.value);
+          noiseNode.loop = true;
+          noiseNode.connect(noiseGain);
+          noiseNode.start();
         };
 
         const stopAllNoise = () => {
-          if (brownAudio.value) brownAudio.value.pause();
-          if (whiteAudio.value) whiteAudio.value.pause();
+          if (noiseNode) { noiseNode.stop(); noiseNode.disconnect(); noiseNode = null; }
         };
 
+        const updateVolume = () => {
+          if (noiseGain) noiseGain.gain.value = volume.value * volume.value;
+        };
+
+        const handleNoiseChange = () => {
+          if (isRunning.value) playSelectedNoise();
+        };
+
+        // --- TIMER LOGIC ---
         const setTimer = (m) => {
           resetTimer();
           timeLeft.value = m * 60;
           updatePiP();
+        };
+
+        const setCustomTimer = () => {
+          let m = parseInt(customMinutes.value);
+          if (isNaN(m) || m < 1) m = 1;
+          if (m > 60) m = 60; // Max limit 60 minutes
+          setTimer(m);
+          customMinutes.value = null; // Clear input
         };
 
         const toggleTimer = () => {
@@ -152,9 +297,13 @@
             clearInterval(timerId);
             isRunning.value = false;
             stopAllNoise();
+            releaseWakeLock();
           } else if (timeLeft.value > 0) {
             isRunning.value = true;
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             playSelectedNoise();
+            requestWakeLock();
+            
             timerId = setInterval(() => {
               timeLeft.value--;
               updatePiP();
@@ -162,8 +311,9 @@
                 clearInterval(timerId);
                 isRunning.value = false;
                 stopAllNoise();
-                if(alarmAudio.value) alarmAudio.value.play();
-                alert("Waktu Habis!");
+                releaseWakeLock();
+                playAlarmBeep();
+                alert("Time's up! Let's take a break.");
                 resetTimer();
               }
             }, 1000);
@@ -175,18 +325,19 @@
           isRunning.value = false;
           timeLeft.value = 0;
           stopAllNoise();
+          releaseWakeLock();
           updatePiP();
         };
 
+        // --- PiP LOGIC ---
         const updatePiP = () => {
           if (!pipCanvas.value) return;
           const ctx = pipCanvas.value.getContext('2d');
-          ctx.fillStyle = "white"; ctx.fillRect(0, 0, 300, 300);
-          ctx.beginPath();
-          ctx.moveTo(150, 150);
+          ctx.fillStyle = "#f1f5f9"; ctx.fillRect(0, 0, 300, 300);
+          ctx.beginPath(); ctx.moveTo(150, 150);
           ctx.arc(150, 150, 130, -Math.PI/2, (-Math.PI/2) + (currentAngle.value * Math.PI / 180));
-          ctx.fillStyle = "#ff4d4d"; ctx.fill();
-          ctx.fillStyle = "black"; ctx.font = "bold 60px sans-serif"; ctx.textAlign = "center";
+          ctx.fillStyle = "#ff6b6b"; ctx.fill(); 
+          ctx.fillStyle = "#1e293b"; ctx.font = "bold 60px sans-serif"; ctx.textAlign = "center";
           ctx.fillText(formattedTime.value, 150, 170);
         };
 
@@ -197,14 +348,12 @@
           await pipVideo.value.requestPictureInPicture();
         };
 
-        onMounted(() => {
-          updateVolume(); // Set initial volume
-        });
+        onMounted(() => { updateVolume(); });
 
         return {
-          timeLeft, isRunning, currentAngle, formattedTime,
-          alarmAudio, brownAudio, whiteAudio, selectedNoise, volume, pipCanvas, pipVideo,
-          getColor, setTimer, toggleTimer, resetTimer, triggerPiP, handleNoiseChange, updateVolume
+          timeLeft, isRunning, currentAngle, formattedTime, showSidebar,
+          selectedNoise, volume, customMinutes, pipCanvas, pipVideo,
+          setTimer, setCustomTimer, toggleTimer, resetTimer, triggerPiP, handleNoiseChange, updateVolume, toggleSidebar
         };
       }
     }).mount('#app');
